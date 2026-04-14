@@ -20,10 +20,6 @@ async function createWindow() {
   const port = await getOpenPort();
   const isDev = !app.isPackaged;
 
-  const serverPath = isDev 
-    ? 'dev:server' 
-    : path.join(__dirname, '../packages/server/src/index.ts');
-
   if (isDev) {
     const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
     serverProcess = spawn(pnpmCommand, ['run', 'dev:server'], {
@@ -31,9 +27,14 @@ async function createWindow() {
       stdio: 'inherit'
     });
   } else {
-    // Production uses the bundled node execution
+    // Run the compiled JS from the server's dist folder
+    const serverPath = path.join(__dirname, '../packages/server/dist/index.js');
     serverProcess = spawn(process.execPath, [serverPath], {
-      env: { ...process.env, PORT: port },
+      env: { 
+        ...process.env, 
+        PORT: port,
+        ELECTRON_RUN_AS_NODE: '1' // Tells Electron binary to act like Node
+      },
       stdio: 'inherit'
     });
   }
@@ -57,18 +58,8 @@ async function createWindow() {
       query: { serverPort: port.toString() }
     });
   }
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
 }
 
 app.whenReady().then(createWindow);
-
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('before-quit', () => {
-  if (serverProcess) serverProcess.kill();
-});
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('before-quit', () => { if (serverProcess) serverProcess.kill(); });

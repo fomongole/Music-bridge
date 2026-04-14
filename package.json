@@ -6,15 +6,11 @@
   "scripts": {
     "dev:client": "pnpm --filter client dev",
     "dev:server": "pnpm --filter server dev",
-    "dev": "pnpm run dev:client & pnpm run dev:server",
     "desktop": "electron electron/main.js",
+    "build:server": "pnpm --filter server build",
     "build:client": "pnpm --filter client build",
-    "dist": "pnpm run build:client && electron-builder"
+    "dist": "pnpm run build:server && pnpm run build:client && electron-builder"
   },
-  "keywords": [],
-  "author": "Engineer Fred",
-  "license": "ISC",
-  "packageManager": "pnpm@10.33.0",
   "build": {
     "appId": "com.engineerfred.musicbridge",
     "productName": "MusicBridge",
@@ -24,27 +20,16 @@
     "files": [
       "electron/**/*",
       "packages/client/dist/**/*",
-      "packages/server/**/*",
+      "packages/server/dist/**/*",
       "node_modules/**/*"
     ],
     "mac": {
       "category": "public.app-category.music",
-      "target": "dmg",
-      "hardenedRuntime": true
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": "AppImage"
+      "target": "dmg"
     }
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "usb",
-      "electron",
-      "electron-winstaller"
-    ]
+    "onlyBuiltDependencies": ["usb", "electron", "electron-winstaller"]
   },
   "devDependencies": {
     "electron": "^41.2.0",
