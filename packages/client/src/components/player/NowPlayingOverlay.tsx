@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Play, Pause, SkipBack, SkipForward, Volume2, ListMusic } from 'lucide-react'
+import { ChevronDown, Play, Pause, SkipBack, SkipForward, Volume2, ListMusic, Shuffle, Repeat, Repeat1 } from 'lucide-react'
 import { usePlayerStore } from '../../store/usePlayerStore'
 import { useDominantColor } from '../../hooks/useDominantColor'
 
@@ -25,7 +25,11 @@ export function NowPlayingOverlay() {
     currentTime,
     duration,
     seek,
-    playTrack
+    playTrack,
+    isShuffle,
+    toggleShuffle,
+    repeatMode,
+    toggleRepeat
   } = usePlayerStore()
 
   const dominantColor = useDominantColor(currentTrack?.albumArtUrl)
@@ -70,16 +74,16 @@ export function NowPlayingOverlay() {
             </div>
 
             {/* COLUMN 2: Meta, Progress & Controls */}
-            <div className="flex-1 w-full flex flex-col justify-center max-w-[450px]">
+            <div className="flex-1 w-full flex flex-col justify-center items-center lg:items-start max-w-[450px]">
               
-              <div className="text-center lg:text-left mb-8">
+              <div className="text-center lg:text-left mb-8 w-full">
                 <h2 className="text-3xl lg:text-4xl font-extrabold text-slate-900 dark:text-white truncate mb-2">{currentTrack.title}</h2>
                 <p className="text-lg lg:text-xl text-slate-600 dark:text-slate-300 truncate">{currentTrack.artist}</p>
                 <p className="text-sm text-slate-500 dark:text-slate-500 truncate mt-1">{currentTrack.album}</p>
               </div>
 
               {/* Real Progress Bar */}
-              <div className="w-full mb-8">
+              <div className="w-full mb-10">
                 <input
                   type="range"
                   min={0}
@@ -95,17 +99,29 @@ export function NowPlayingOverlay() {
                 </div>
               </div>
 
-              {/* Playback Controls (FIXED CENTERING) */}
-              <div className="flex items-center justify-center gap-8 mb-10 w-full">
-                <button onClick={playPrev} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+              {/* Playback Controls (Perfectly Centered & Error Fixed) */}
+              <div className="flex items-center justify-center gap-6 lg:gap-10 mb-10 w-full px-4 lg:px-0">
+                
+                <button onClick={toggleShuffle} className={`transition-colors ${isShuffle ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}>
+                  <Shuffle className="w-5 h-5" />
+                </button>
+                
+                <button onClick={playPrev} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors shrink-0">
                   <SkipBack className="w-10 h-10 fill-current" />
                 </button>
-                <button onClick={togglePlay} className="w-20 h-20 flex items-center justify-center rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-105 transition-transform shadow-xl shrink-0">
+                
+                <button onClick={togglePlay} className="w-24 h-24 flex items-center justify-center rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:scale-105 transition-transform shadow-xl shrink-0">
                   {isPlaying ? <Pause className="w-10 h-10 fill-current" /> : <Play className="w-10 h-10 fill-current ml-2" />}
                 </button>
-                <button onClick={playNext} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                
+                <button onClick={() => playNext()} className="text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors shrink-0">
                   <SkipForward className="w-10 h-10 fill-current" />
                 </button>
+
+                <button onClick={toggleRepeat} className={`transition-colors ${repeatMode !== 'off' ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}>
+                  {repeatMode === 'one' ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
+                </button>
+
               </div>
 
               {/* Volume */}

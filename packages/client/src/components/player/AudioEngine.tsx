@@ -54,7 +54,7 @@ export function AudioEngine() {
   return (
     <audio
       ref={audioRef}
-      onEnded={playNext}
+      onEnded={() => playNext(true)} // Passing true so the store knows it ended naturally
       onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
       onLoadedMetadata={() => setDuration(audioRef.current?.duration || currentTrack?.duration || 0)}
       className="hidden"
