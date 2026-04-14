@@ -4,6 +4,9 @@ import type { Track } from '../types/Track'
 
 type ScanStatus = 'idle' | 'scanning' | 'complete' | 'error'
 
+// Use the exact same environment variable logic as socket.ts
+const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+
 export function useSocket() {
   const [connected, setConnected] = useState(false)
   const [deviceConnected, setDeviceConnected] = useState(false)
@@ -11,9 +14,9 @@ export function useSocket() {
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [scanError, setScanError] = useState<string | null>(null)
 
-  // On mount, fetch any cached tracks from the server (survives page refresh)
+  // On mount, fetch any cached tracks from the server
   useEffect(() => {
-    fetch('http://localhost:3001/tracks')
+    fetch(`${SERVER_URL}/tracks`)
       .then((res) => res.json())
       .then((cached: Track[]) => {
         if (cached.length > 0) {

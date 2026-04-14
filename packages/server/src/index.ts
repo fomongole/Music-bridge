@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
@@ -8,10 +9,11 @@ import streamRouter from './routes/stream'
 
 const app = express()
 const httpServer = createServer(app)
-const PORT = 3001
+
+const PORT = process.env.PORT || 3001
 
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: '*', // Allows Vite dev server AND Electron production protocols
   methods: ['GET', 'POST'],
 }))
 
@@ -19,7 +21,7 @@ app.use(express.json())
 
 const io = new Server(httpServer, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: '*',
     methods: ['GET', 'POST'],
   }
 })
@@ -43,7 +45,6 @@ app.get('/health', (_req, res) => {
 
 app.use('/stream', streamRouter)
 
-// Returns cached tracks so the client can restore the list on page refresh
 app.get('/tracks', (_req, res) => {
   res.json(getCachedTracks())
 })
