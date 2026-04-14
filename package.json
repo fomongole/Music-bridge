@@ -1,18 +1,44 @@
 {
   "name": "music-bridge",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Bridge your Android music library to your desktop.",
+  "main": "electron/main.js",
   "scripts": {
     "dev:client": "pnpm --filter client dev",
     "dev:server": "pnpm --filter server dev",
     "dev": "pnpm run dev:client & pnpm run dev:server",
-    "desktop": "electron electron/main.js"
+    "desktop": "electron electron/main.js",
+    "build:client": "pnpm --filter client build",
+    "dist": "pnpm run build:client && electron-builder"
   },
   "keywords": [],
-  "author": "",
+  "author": "Engineer Fred",
   "license": "ISC",
   "packageManager": "pnpm@10.33.0",
+  "build": {
+    "appId": "com.engineerfred.musicbridge",
+    "productName": "MusicBridge",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "packages/client/dist/**/*",
+      "packages/server/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": "dmg",
+      "hardenedRuntime": true
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
   "pnpm": {
     "onlyBuiltDependencies": [
       "usb",
