@@ -10,7 +10,6 @@ const client = Adb.createClient()
 
 const MUSIC_EXTENSIONS = ['.mp3', '.flac', '.aac', '.wav', '.ogg', '.m4a']
 
-// Folders to scan on the device
 const SCAN_PATHS = [
   '/sdcard/Music',
   '/sdcard/Download',
@@ -18,6 +17,13 @@ const SCAN_PATHS = [
   '/storage/emulated/0/Music',
   '/storage/emulated/0/Download',
 ]
+
+// In-memory track cache — survives page refreshes
+let trackCache: Track[] = []
+
+export function getCachedTracks(): Track[] {
+  return trackCache
+}
 
 async function getConnectedDeviceId(): Promise<string | null> {
   const devices = await client.listDevices()
@@ -30,7 +36,6 @@ async function findMusicFiles(deviceId: string): Promise<string[]> {
 
   for (const scanPath of SCAN_PATHS) {
     try {
-      // Use adb shell find to locate music files in this path
       const output = await client
         .getDevice(deviceId)
         .shell(`find "${scanPath}" -type f \\( ${
@@ -56,7 +61,6 @@ async function pullAndReadMetadata(
     const ext = path.extname(remotePath).toLowerCase()
     const tmpFile = path.join(os.tmpdir(), `mb_${Date.now()}_${path.basename(remotePath)}`)
 
-    // Pull file from device to a temp location
     await client.getDevice(deviceId).pull(remotePath).then(
       (transfer: any) =>
         new Promise<void>((resolve, reject) => {
@@ -66,22 +70,19 @@ async function pullAndReadMetadata(
         })
     )
 
-    // Read metadata from the temp file
     const metadata = await mm.parseFile(tmpFile)
     const common = metadata.common
     const format = metadata.format
 
-    // Extract album art if present
     let albumArtUrl: string | undefined
     if (common.picture && common.picture.length > 0) {
-        const pic = common.picture[0]
-        albumArtUrl = `data:${pic.format};base64,${Buffer.from(pic.data).toString('base64')}`
+      const pic = common.picture[0]
+      albumArtUrl = `data:${pic.format};base64,${Buffer.from(pic.data).toString('base64')}`
     }
 
-    // Clean up the temp audio file (keep art files for now)
     fs.unlinkSync(tmpFile)
 
-    const track: Track = {
+    return {
       id: Buffer.from(remotePath).toString('base64'),
       title: common.title || path.basename(remotePath, ext),
       artist: common.artist || 'Unknown Artist',
@@ -91,8 +92,6 @@ async function pullAndReadMetadata(
       albumArtUrl,
       format: ext.replace('.', ''),
     }
-
-    return track
   } catch (err) {
     console.error(`Failed to read metadata for ${remotePath}:`, err)
     return null
@@ -109,6 +108,7 @@ export async function scanMusicFiles(io: Server): Promise<void> {
     }
 
     console.log(`Scanning device ${deviceId} for music files...`)
+    trackCache = []   // clear cache at start of each new scan
     io.emit('scan:started')
 
     const filePaths = await findMusicFiles(deviceId)
@@ -120,7 +120,7 @@ export async function scanMusicFiles(io: Server): Promise<void> {
       const track = await pullAndReadMetadata(deviceId, filePath)
       if (track) {
         tracks.push(track)
-        // Emit each track as it's ready so the UI can update progressively
+        trackCache.push(track)   // store in cache
         io.emit('track:found', track)
       }
     }

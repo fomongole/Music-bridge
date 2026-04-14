@@ -11,6 +11,21 @@ export function useSocket() {
   const [scanStatus, setScanStatus] = useState<ScanStatus>('idle')
   const [scanError, setScanError] = useState<string | null>(null)
 
+  // On mount, fetch any cached tracks from the server (survives page refresh)
+  useEffect(() => {
+    fetch('http://localhost:3001/tracks')
+      .then((res) => res.json())
+      .then((cached: Track[]) => {
+        if (cached.length > 0) {
+          setTracks(cached)
+          setScanStatus('complete')
+        }
+      })
+      .catch(() => {
+        // Server not ready yet — ignore silently
+      })
+  }, [])
+
   useEffect(() => {
     socket.on('connect', () => setConnected(true))
     socket.on('disconnect', () => setConnected(false))

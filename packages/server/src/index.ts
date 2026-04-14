@@ -1,11 +1,10 @@
-// packages/server/src/index.ts
-
 import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { initUsbService } from './services/usbService'
-import { scanMusicFiles } from './services/adbService'
+import { scanMusicFiles, getCachedTracks } from './services/adbService'
+import streamRouter from './routes/stream'
 
 const app = express()
 const httpServer = createServer(app)
@@ -28,7 +27,6 @@ const io = new Server(httpServer, {
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`)
 
-  // Send current device status immediately when client connects
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`)
   })
@@ -41,6 +39,13 @@ io.on('connection', (socket) => {
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'MusicBridge server running' })
+})
+
+app.use('/stream', streamRouter)
+
+// Returns cached tracks so the client can restore the list on page refresh
+app.get('/tracks', (_req, res) => {
+  res.json(getCachedTracks())
 })
 
 initUsbService(io)
