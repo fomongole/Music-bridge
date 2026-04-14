@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import socket from '../services/socket'
 import type { Track } from '../types/Track'
+import { SERVER_URL } from '../config'
 
 type ScanStatus = 'idle' | 'scanning' | 'complete' | 'error'
-
-// Use the exact same environment variable logic as socket.ts
-const SERVER_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 export function useSocket() {
   const [connected, setConnected] = useState(false)
