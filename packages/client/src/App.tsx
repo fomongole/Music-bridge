@@ -1,280 +1,115 @@
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { RefreshCw, Search, ArrowUp } from 'lucide-react'
 import { useSocket } from './hooks/useSocket'
-import type { Track } from './types/Track'
+import { usePlayerStore } from './store/usePlayerStore'
 
-function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-function TrackRow({
-  track,
-  isPlaying,
-  isSelected,
-  onClick,
-}: {
-  track: Track
-  isPlaying: boolean
-  isSelected: boolean
-  onClick: () => void
-}) {
-  return (
-    <div
-      onClick={onClick}
-      className={`flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer transition-colors ${
-        isSelected ? 'bg-white/10' : 'hover:bg-white/5'
-      }`}
-    >
-      <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center shrink-0 overflow-hidden relative">
-        {track.albumArtUrl ? (
-          <img src={track.albumArtUrl} alt={track.album} className="w-full h-full object-cover" />
-        ) : (
-          <span className="text-gray-500 text-xs">♪</span>
-        )}
-        {isSelected && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="text-white text-xs">{isPlaying ? '▶' : '⏸'}</span>
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isSelected ? 'text-indigo-400' : 'text-white'}`}>
-          {track.title}
-        </p>
-        <p className="text-xs text-gray-400 truncate">{track.artist} · {track.album}</p>
-      </div>
-      <div className="text-xs text-gray-500 shrink-0">{formatDuration(track.duration)}</div>
-      <div className="text-xs text-gray-600 uppercase shrink-0">{track.format}</div>
-    </div>
-  )
-}
-
-function Player({
-  track,
-  onNext,
-  onPrev,
-}: {
-  track: Track
-  onNext: () => void
-  onPrev: () => void
-}) {
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(track.duration)
-  const [volume, setVolume] = useState(1)
-
-  // When track changes, load and autoplay
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.src = `http://localhost:3001/stream/${track.id}`
-    audio.load()
-    audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false))
-    setCurrentTime(0)
-    setDuration(track.duration)
-  }, [track.id])
-
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    audio.volume = volume
-  }, [volume])
-
-  const togglePlay = () => {
-    const audio = audioRef.current
-    if (!audio) return
-    if (isPlaying) {
-      audio.pause()
-      setIsPlaying(false)
-    } else {
-      audio.play().then(() => setIsPlaying(true))
-    }
-  }
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const audio = audioRef.current
-    if (!audio) return
-    const time = parseFloat(e.target.value)
-    audio.currentTime = time
-    setCurrentTime(time)
-  }
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-white/10 px-6 py-3">
-      <audio
-        ref={audioRef}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration || track.duration)}
-        onEnded={onNext}
-      />
-
-      <div className="max-w-3xl mx-auto flex flex-col gap-2">
-
-        {/* Progress bar */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500 w-10 text-right">{formatDuration(currentTime)}</span>
-          <input
-            type="range"
-            min={0}
-            max={duration || 1}
-            step={0.1}
-            value={currentTime}
-            onChange={handleSeek}
-            className="flex-1 h-1 accent-indigo-500 cursor-pointer"
-          />
-          <span className="text-xs text-gray-500 w-10">{formatDuration(duration)}</span>
-        </div>
-
-        {/* Controls row */}
-        <div className="flex items-center gap-4">
-
-          {/* Album art + track info */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-9 h-9 rounded bg-gray-800 shrink-0 overflow-hidden">
-              {track.albumArtUrl ? (
-                <img src={track.albumArtUrl} alt={track.album} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <span className="text-gray-500 text-xs">♪</span>
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">{track.title}</p>
-              <p className="text-xs text-gray-400 truncate">{track.artist}</p>
-            </div>
-          </div>
-
-          {/* Playback buttons */}
-          <div className="flex items-center gap-4 shrink-0">
-            <button onClick={onPrev} className="text-gray-400 hover:text-white transition-colors text-lg">
-              ⏮
-            </button>
-            <button
-              onClick={togglePlay}
-              className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center transition-colors text-sm"
-            >
-              {isPlaying ? '⏸' : '▶'}
-            </button>
-            <button onClick={onNext} className="text-gray-400 hover:text-white transition-colors text-lg">
-              ⏭
-            </button>
-          </div>
-
-          {/* Volume */}
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            <span className="text-gray-500 text-sm">🔈</span>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e) => setVolume(parseFloat(e.target.value))}
-              className="w-24 h-1 accent-indigo-500 cursor-pointer"
-            />
-          </div>
-
-        </div>
-      </div>
-    </div>
-  )
-}
+import { Header } from './components/layout/Header'
+import { TrackList } from './components/library/TrackList'
+import { PlayerBar } from './components/player/PlayerBar'
+import { NowPlayingOverlay } from './components/player/NowPlayingOverlay'
+import { AudioEngine } from './components/player/AudioEngine'
 
 function App() {
   const { connected, deviceConnected, tracks, scanStatus, scanError, requestScan } = useSocket()
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
+  const currentTrack = usePlayerStore((state) => state.currentTrack)
+  
+  // Search and Scroll States
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showScrollTop, setShowScrollTop] = useState(false)
 
-  const selectedIndex = selectedTrack ? tracks.findIndex(t => t.id === selectedTrack.id) : -1
+  // Track scrolling to toggle the FAB
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
-  const playNext = () => {
-    if (tracks.length === 0) return
-    const nextIndex = (selectedIndex + 1) % tracks.length
-    setSelectedTrack(tracks[nextIndex])
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const playPrev = () => {
-    if (tracks.length === 0) return
-    const prevIndex = (selectedIndex - 1 + tracks.length) % tracks.length
-    setSelectedTrack(tracks[prevIndex])
-  }
+  // Filter tracks based on search
+  const filteredTracks = tracks.filter(track => 
+    track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    track.album.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   return (
-    <div className={`min-h-screen bg-gray-950 text-white flex flex-col ${selectedTrack ? 'pb-28' : ''}`}>
+    <div className={`min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-white transition-colors duration-300 ${currentTrack ? 'pb-32' : ''}`}>
+      
+      <AudioEngine />
+      <NowPlayingOverlay />
+      
+      {/* Search state is now passed to the Header */}
+      <Header 
+        connected={connected} 
+        deviceConnected={deviceConnected} 
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        hasTracks={tracks.length > 0}
+      />
 
-      {/* Header */}
-      <header className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-        <h1 className="text-lg font-bold tracking-tight">MusicBridge</h1>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-xs text-gray-400">{connected ? 'Server' : 'Disconnected'}</span>
+      <main className="max-w-5xl mx-auto w-full px-6 py-8 relative">
+        
+        {/* Title & Sync Button Row */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8">
+          <div>
+            <h2 className="text-3xl font-extrabold tracking-tight">Your Library</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-1">
+              {tracks.length > 0 ? `${tracks.length} tracks found on device` : 'Connect your phone to sync music'}
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${deviceConnected ? 'bg-green-500' : 'bg-yellow-500'}`} />
-            <span className="text-xs text-gray-400">{deviceConnected ? 'Phone connected' : 'No device'}</span>
-          </div>
-        </div>
-      </header>
 
-      {/* Main */}
-      <main className="flex-1 px-6 py-6 max-w-3xl mx-auto w-full">
-
-        {/* Scan button + status */}
-        <div className="flex items-center gap-4 mb-6">
           <button
             onClick={requestScan}
             disabled={!deviceConnected || scanStatus === 'scanning'}
-            className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:hover:bg-indigo-600 text-white font-semibold transition-all shadow-md shadow-indigo-600/20 shrink-0"
           >
-            {scanStatus === 'scanning' ? 'Scanning...' : 'Scan Music'}
+            <RefreshCw className={`w-4 h-4 ${scanStatus === 'scanning' ? 'animate-spin' : ''}`} />
+            {scanStatus === 'scanning' ? 'Scanning...' : 'Sync Device'}
           </button>
-
-          {scanStatus === 'scanning' && (
-            <span className="text-sm text-gray-400">Found {tracks.length} tracks so far...</span>
-          )}
-          {scanStatus === 'complete' && (
-            <span className="text-sm text-green-400">✓ {tracks.length} tracks found</span>
-          )}
-          {scanStatus === 'error' && (
-            <span className="text-sm text-red-400">✗ {scanError}</span>
-          )}
         </div>
 
-        {/* Track list */}
-        {tracks.length > 0 && (
-          <div className="space-y-1">
-            {tracks.map((track) => (
-              <TrackRow
-                key={track.id}
-                track={track}
-                isSelected={selectedTrack?.id === track.id}
-                isPlaying={selectedTrack?.id === track.id}
-                onClick={() => setSelectedTrack(track)}
-              />
-            ))}
+        {/* Error State */}
+        {scanStatus === 'error' && (
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 mb-6">
+            <p className="font-medium">Sync Error: {scanError}</p>
           </div>
         )}
 
-        {scanStatus === 'idle' && tracks.length === 0 && (
-          <p className="text-gray-600 text-sm text-center mt-20">
-            Connect your Android phone and press Scan Music
-          </p>
+        {/* Dynamic Lists */}
+        {tracks.length === 0 && scanStatus !== 'scanning' ? (
+          <div className="flex flex-col items-center justify-center py-32 text-center">
+            <div className="w-20 h-20 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6">
+              <Search className="w-10 h-10 text-slate-400" />
+            </div>
+            <h3 className="text-xl font-bold mb-2">No music found</h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Plug in your Android device via USB and click sync to bridge your local music library.
+            </p>
+          </div>
+        ) : filteredTracks.length === 0 && tracks.length > 0 ? (
+           <div className="text-center py-20 text-slate-500 font-medium">
+             No tracks match "{searchQuery}"
+           </div>
+        ) : (
+          <TrackList tracks={filteredTracks} />
         )}
 
       </main>
 
-      {/* Player */}
-      {selectedTrack && (
-        <Player
-          track={selectedTrack}
-          onNext={playNext}
-          onPrev={playPrev}
-        />
-      )}
+      {/* Scroll to Top FAB */}
+      <button 
+        onClick={scrollToTop}
+        className={`fixed bottom-28 right-8 p-3 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl transition-all duration-300 z-30 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+      >
+        <ArrowUp className="w-5 h-5" />
+      </button>
 
+      <PlayerBar />
     </div>
   )
 }
