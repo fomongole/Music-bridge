@@ -5,6 +5,7 @@ import cors from 'cors'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { initUsbService } from './services/usbService'
+import { scanMusicFiles } from './services/adbService'
 
 const app = express()
 const httpServer = createServer(app)
@@ -30,6 +31,11 @@ io.on('connection', (socket) => {
   // Send current device status immediately when client connects
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`)
+  })
+
+  socket.on('scan:request', () => {
+    console.log('Scan requested by client')
+    scanMusicFiles(io)
   })
 })
 

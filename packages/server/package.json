@@ -12,6 +12,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.33.0",
   "dependencies": {
+    "@devicefarmer/adbkit": "^3.3.8",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "music-metadata": "^11.12.3",
