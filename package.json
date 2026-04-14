@@ -6,13 +6,22 @@
   "scripts": {
     "dev:client": "pnpm --filter client dev",
     "dev:server": "pnpm --filter server dev",
-    "dev": "pnpm run dev:client & pnpm run dev:server"
+    "dev": "pnpm run dev:client & pnpm run dev:server",
+    "desktop": "electron electron/main.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.33.0",
   "pnpm": {
-    "onlyBuiltDependencies": ["usb"]
+    "onlyBuiltDependencies": [
+      "usb",
+      "electron",
+      "electron-winstaller"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
   }
 }

@@ -18,10 +18,16 @@ export function Header({ connected, deviceConnected, searchQuery, setSearchQuery
   useEffect(() => setMounted(true), [])
 
   return (
-    <header className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between bg-slate-50/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-colors duration-300 gap-4">
+    <header 
+      style={{ WebkitAppRegion: 'drag' } as any}
+      className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-colors duration-300 gap-4"
+    >
       
-      {/* 1. Logo Section (Left) */}
-      <div className="flex items-center gap-3 md:w-1/3 shrink-0">
+      {/* 1. Logo Section (Left) - Non-draggable to allow interaction */}
+      <div 
+        style={{ WebkitAppRegion: 'no-drag' } as any}
+        className="flex items-center gap-3 md:w-1/3 shrink-0"
+      >
         <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20">
           <MonitorSmartphone className="w-4 h-4 text-white" />
         </div>
@@ -30,8 +36,11 @@ export function Header({ connected, deviceConnected, searchQuery, setSearchQuery
         </h1>
       </div>
 
-      {/* 2. Global Search (Center) */}
-      <div className="flex-1 max-w-md w-full">
+      {/* 2. Global Search (Center) - Non-draggable to allow typing */}
+      <div 
+        style={{ WebkitAppRegion: 'no-drag' } as any}
+        className="flex-1 max-w-md w-full"
+      >
         {hasTracks && (
           <div className="relative w-full transition-all duration-300 focus-within:scale-[1.02]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -46,8 +55,11 @@ export function Header({ connected, deviceConnected, searchQuery, setSearchQuery
         )}
       </div>
 
-      {/* 3. Status & Theme Toggle (Right) */}
-      <div className="flex items-center justify-end gap-6 md:w-1/3 shrink-0">
+      {/* 3. Status & Theme Toggle (Right) - Non-draggable to allow clicking */}
+      <div 
+        style={{ WebkitAppRegion: 'no-drag' } as any}
+        className="flex items-center justify-end gap-6 md:w-1/3 shrink-0"
+      >
         {/* Status Indicators */}
         <div className="hidden lg:flex items-center gap-4 bg-slate-200/50 dark:bg-zinc-900/50 px-4 py-2 rounded-full border border-slate-300/50 dark:border-white/5">
           <div className="flex items-center gap-2" title="Server Status">
