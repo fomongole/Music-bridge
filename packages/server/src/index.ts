@@ -6,6 +6,7 @@ import { Server } from 'socket.io'
 import { initUsbService } from './services/usbService'
 import { scanMusicFiles, getCachedTracks } from './services/adbService'
 import streamRouter from './routes/stream'
+import playlistRouter from './routes/playlists'
 
 const app = express()
 const httpServer = createServer(app)
@@ -14,7 +15,7 @@ const PORT = process.env.PORT || 3001
 
 app.use(cors({
   origin: '*', // Allows Vite dev server AND Electron production protocols
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }))
 
 app.use(express.json())
@@ -43,11 +44,13 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', message: 'MusicBridge server running' })
 })
 
-app.use('/stream', streamRouter)
-
 app.get('/tracks', (_req, res) => {
   res.json(getCachedTracks())
 })
+
+// Mount your routers
+app.use('/stream', streamRouter)
+app.use('/playlists', playlistRouter)
 
 initUsbService(io)
 
