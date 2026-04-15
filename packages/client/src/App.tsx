@@ -29,21 +29,17 @@ function App() {
   const { isEnabled: autoMixEnabled, setEnabled: setAutoMixEnabled } = useAutoMixStore()
 
   const [searchQuery, setSearchQuery]     = useState('')
-  const [sortOption, setSortOption]       = useState('default') // NEW: Sorting state
+  const [sortOption, setSortOption]       = useState('default')
   const [showScrollTop, setShowScrollTop] = useState(false)
   
-  // Reference to the main scrollable area
   const mainRef = useRef<HTMLElement>(null)
 
-  // Fetch playlists on mount
   useEffect(() => { fetchPlaylists() }, [fetchPlaylists])
 
-  // Re-fetch playlists when the server reconnects (new scan etc.)
   useEffect(() => {
     if (connected) fetchPlaylists()
   }, [connected, fetchPlaylists])
 
-  // Track scrolling on the main container instead of the window
   useEffect(() => {
     const mainElement = mainRef.current
     if (!mainElement) return
@@ -53,33 +49,29 @@ function App() {
     return () => mainElement.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // ── Stop auto-mix when the user navigates away from a playlist ────────────
   useEffect(() => {
     if (useAutoMixStore.getState().isEnabled) {
       useAutoMixStore.getState().setEnabled(false)
       usePlayerStore.setState({ isPlaying: false })
     }
-  }, [activePlaylistId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activePlaylistId]) 
 
   const scrollToTop = () => {
     mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // ── Determine what to display ─────────────────────────────────────────────
   const activePlaylist = playlists.find(p => p.id === activePlaylistId) ?? null
 
   const visibleTracks = activePlaylist
     ? tracks.filter(t => activePlaylist.trackIds.includes(t.id))
     : tracks
 
-  // 1. Filter tracks based on search
   const filteredTracks = visibleTracks.filter(track =>
     track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
     track.album.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // 2. Sort the filtered tracks using the actual Date Added timestamp
   const sortedTracks = [...filteredTracks].sort((a, b) => {
     switch (sortOption) {
       case 'title-asc':
@@ -89,11 +81,9 @@ function App() {
       case 'artist-asc':
         return a.artist.localeCompare(b.artist)
       case 'newest':
-        // Highest timestamp (newest) comes first
         return b.dateAdded - a.dateAdded
       case 'default':
       default:
-        // Lowest timestamp (oldest) comes first
         return a.dateAdded - b.dateAdded
     }
   })
@@ -107,7 +97,6 @@ function App() {
     await removeTrackFromPlaylist(activePlaylistId, trackId)
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
       className={`
@@ -115,7 +104,6 @@ function App() {
         bg-slate-50 dark:bg-zinc-950
         text-slate-900 dark:text-white
         transition-colors duration-300
-        ${currentTrack ? 'pb-32' : ''}
       `}
     >
       <AudioEngine />
@@ -130,16 +118,26 @@ function App() {
         hasTracks={tracks.length > 0}
       />
 
-      {/* Two-panel layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
 
         <Sidebar />
 
-        {/* Main content */}
-        <main ref={mainRef} className="flex-1 overflow-y-auto">
-          <div className="max-w-4xl mx-auto w-full px-6 py-8 relative">
+        {/* NEW: We removed the hard pb-32 from the parent container.
+          Instead, we add padding directly to the scrollable content area,
+          and add a CSS mask-image to create a smooth fade-out effect at the bottom 
+          if the player bar is visible.
+        */}
+        <main 
+          ref={mainRef} 
+          className="flex-1 overflow-y-auto"
+          style={currentTrack ? {
+            maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)'
+          } : {}}
+        >
+          {/* Added pb-32 here so the last track clears the player bar, but fades nicely */}
+          <div className={`max-w-4xl mx-auto w-full px-6 py-8 relative ${currentTrack ? 'pb-32' : ''}`}>
 
-            {/* Title row */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-8">
               <div>
                 {activePlaylist ? (
@@ -166,7 +164,6 @@ function App() {
                 )}
               </div>
 
-              {/* Right side: Auto Mix for playlists | Sync for library */}
               {activePlaylist ? (
                 activePlaylist.trackIds.length > 0 && (
                   <PlaylistAutoMixPanel tracks={sortedTracks.length > 0 ? sortedTracks : visibleTracks} />
@@ -183,14 +180,12 @@ function App() {
               )}
             </div>
 
-            {/* Scan error (library view only) */}
             {scanStatus === 'error' && !activePlaylist && (
               <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 mb-6">
                 <p className="font-medium">Sync Error: {scanError}</p>
               </div>
             )}
 
-            {/* Empty playlist */}
             {activePlaylist && activePlaylist.trackIds.length === 0 && (
               <div className="flex flex-col items-center justify-center py-32 text-center">
                 <div className="w-20 h-20 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6">
@@ -210,7 +205,6 @@ function App() {
               </div>
             )}
 
-            {/* No library tracks */}
             {!activePlaylist && tracks.length === 0 && scanStatus !== 'scanning' && (
               <div className="flex flex-col items-center justify-center py-32 text-center">
                 <div className="w-20 h-20 bg-slate-100 dark:bg-zinc-900 rounded-full flex items-center justify-center mb-6">
@@ -223,14 +217,12 @@ function App() {
               </div>
             )}
 
-            {/* No search results */}
             {filteredTracks.length === 0 && visibleTracks.length > 0 && (
               <div className="text-center py-20 text-slate-500 font-medium">
                 No tracks match "{searchQuery}"
               </div>
             )}
 
-            {/* NEW: Sort Controls & Meta Data */}
             {filteredTracks.length > 0 && (
               <div className="flex items-center justify-between mb-4 px-2">
                 <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -254,10 +246,9 @@ function App() {
               </div>
             )}
 
-            {/* Track list */}
             {sortedTracks.length > 0 && (
               <TrackList
-                tracks={sortedTracks} // Pass sorted tracks here
+                tracks={sortedTracks}
                 playlistId={activePlaylistId ?? undefined}
                 onRemoveFromPlaylist={activePlaylist ? handleRemoveFromPlaylist : undefined}
               />
@@ -267,7 +258,6 @@ function App() {
         </main>
       </div>
 
-      {/* Scroll-to-top FAB */}
       <button
         onClick={scrollToTop}
         className={`fixed bottom-28 right-8 p-3 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl transition-all duration-300 z-30 ${

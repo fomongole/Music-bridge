@@ -1,6 +1,6 @@
 {
   "name": "music-bridge",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Bridge your Android music library to your desktop.",
   "main": "electron/main.js",
   "scripts": {

@@ -20,7 +20,8 @@ export function Header({ connected, deviceConnected, searchQuery, setSearchQuery
   return (
     <header 
       style={{ WebkitAppRegion: 'drag' } as any}
-      className="sticky top-0 z-10 px-6 py-4 flex items-center justify-between bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-colors duration-300 gap-4"
+      // Replaced px-6 with pl-20 pr-6 to leave safe room for macOS traffic light buttons
+      className="sticky top-0 z-10 pl-20 pr-6 py-4 flex items-center justify-between bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-slate-200 dark:border-white/5 transition-colors duration-300 gap-4"
     >
       
       {/* 1. Logo Section (Left) - Non-draggable to allow interaction */}
