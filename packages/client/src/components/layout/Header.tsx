@@ -61,14 +61,26 @@ export function Header({ connected, deviceConnected, searchQuery, setSearchQuery
         className="flex items-center justify-end gap-6 md:w-1/3 shrink-0"
       >
         {/* Status Indicators */}
-        <div className="hidden lg:flex items-center gap-4 bg-slate-200/50 dark:bg-zinc-900/50 px-4 py-2 rounded-full border border-slate-300/50 dark:border-white/5">
+        <div className="hidden lg:flex items-center gap-4 bg-slate-200/50 dark:bg-zinc-900/50 px-4 py-2 rounded-full border border-slate-300/50 dark:border-white/5 text-xs font-medium">
+          
+          {/* Server Status */}
           <div className="flex items-center gap-2" title="Server Status">
             <Server className={`w-4 h-4 ${connected ? 'text-emerald-500' : 'text-rose-500'}`} />
+            <span className={connected ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>
+              {connected ? 'Online' : 'Offline'}
+            </span>
           </div>
+          
           <div className="w-[1px] h-4 bg-slate-300 dark:bg-white/10" />
+          
+          {/* Device Status */}
           <div className="flex items-center gap-2" title="Device Status">
             <MonitorSmartphone className={`w-4 h-4 ${deviceConnected ? 'text-emerald-500' : 'text-amber-500'}`} />
+            <span className={deviceConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+              {deviceConnected ? 'Connected' : 'Disconnected'}
+            </span>
           </div>
+
         </div>
 
         {/* Theme Toggle */}
