@@ -6,8 +6,8 @@
  * no React dependencies. All times are in milliseconds internally.
  *
  * Architecture:
- *   HTMLAudioElement A → MediaElementSourceNode A → GainNode A ─┐
- *   HTMLAudioElement B → MediaElementSourceNode B → GainNode B ─┴→ destination
+ *   HTMLAudioElement A → MediaElementSourceNode A → BiquadFilterNode A (highpass bass-cut) → GainNode A ─┐
+ *   HTMLAudioElement B → MediaElementSourceNode B → BiquadFilterNode B (highpass bass-cut) → GainNode B ─┴→ destination
  *
  * Thread safety note:
  *   All AudioContext operations must happen on the main thread.
@@ -51,6 +51,8 @@ export class AutoMixEngine {
   private elemB:   HTMLAudioElement | null = null
   private srcA:    MediaElementAudioSourceNode | null = null
   private srcB:    MediaElementAudioSourceNode | null = null
+  private filterA: BiquadFilterNode | null = null
+  private filterB: BiquadFilterNode | null = null
   private gainA:   GainNode | null = null
   private gainB:   GainNode | null = null
   private isPrimA  = true
@@ -110,16 +112,26 @@ export class AutoMixEngine {
     this.elemA = mkEl()
     this.elemB = mkEl()
 
-    // Build the Web Audio graph
+    // Build the Web Audio graph with highpass filters for gradual bass removal on outgoing track
     this.srcA  = this.ctx.createMediaElementSource(this.elemA)
+    this.filterA = this.ctx.createBiquadFilter()
+    this.filterA.type = 'highpass'
+    this.filterA.frequency.value = 20
+    this.filterA.Q.value = 0.7
     this.gainA = this.ctx.createGain()
-    this.srcA.connect(this.gainA)
+    this.srcA.connect(this.filterA)
+    this.filterA.connect(this.gainA)
     this.gainA.connect(this.ctx.destination)
     this.gainA.gain.value = 1
 
     this.srcB  = this.ctx.createMediaElementSource(this.elemB)
+    this.filterB = this.ctx.createBiquadFilter()
+    this.filterB.type = 'highpass'
+    this.filterB.frequency.value = 20
+    this.filterB.Q.value = 0.7
     this.gainB = this.ctx.createGain()
-    this.srcB.connect(this.gainB)
+    this.srcB.connect(this.filterB)
+    this.filterB.connect(this.gainB)
     this.gainB.connect(this.ctx.destination)
     this.gainB.gain.value = 0
 
@@ -138,6 +150,8 @@ export class AutoMixEngine {
     this.elemA?.pause()
     this.elemB?.pause()
 
+    this.filterA?.disconnect()
+    this.filterB?.disconnect()
     this.gainA?.disconnect()
     this.gainB?.disconnect()
     this.srcA?.disconnect()
@@ -146,6 +160,7 @@ export class AutoMixEngine {
     this.ctx?.close()
     this.ctx = null; this.elemA = null; this.elemB = null
     this.srcA = null; this.srcB = null
+    this.filterA = null; this.filterB = null
     this.gainA = null; this.gainB = null
     this.initialized = false
   }
@@ -168,6 +183,10 @@ export class AutoMixEngine {
     const secondary = this._secEl()
     if (secondary) { secondary.pause(); secondary.src = '' }
     this._secGain()!.gain.value = 0
+
+    // Reset both filters to full bass on track start
+    this._primFilter()!.frequency.value = 20
+    this._secFilter()!.frequency.value = 20
 
     const primary = this._primEl()!
     primary.src = url
@@ -273,7 +292,7 @@ export class AutoMixEngine {
   private async _executeFade(
     url: string, trackId: string, bpm: number, rawFirstBeatMs: number
   ): Promise<void> {
-    if (!this.ctx || !this.gainA || !this.gainB) return
+    if (!this.ctx || !this.gainA || !this.gainB || !this.filterA || !this.filterB) return
 
     this.fading    = true
     this.abortFade = false
@@ -283,6 +302,8 @@ export class AutoMixEngine {
     const secEl   = this._secEl()!
     const primGn  = this._primGain()!
     const secGn   = this._secGain()!
+    const primFlt = this._primFilter()!
+    const secFlt  = this._secFilter()!
 
     const guardedFirstBeat = this._guard(rawFirstBeatMs, bpm)
 
@@ -302,12 +323,15 @@ export class AutoMixEngine {
         secEl.currentTime = Math.max(0, safe)
       }
 
-      // 4. Start secondary muted
+      // 4. Start secondary muted + reset both filters to full bass
       secGn.gain.value = 0
+      primFlt.frequency.value = 20
+      secFlt.frequency.value = 20
       this._resume()
       await secEl.play()
 
       // 5. Equal-power gain ramp (cos/sin — same as Android)
+      //    + gradual bass removal on outgoing track (highpass cutoff ramp)
       const primStart = primGn.gain.value
       const stepMs    = Math.max(16, this.crossfadeDurationMs / FADE_STEPS)
 
@@ -320,12 +344,19 @@ export class AutoMixEngine {
         primGn.gain.value = Math.cos(angle) * primStart
         secGn.gain.value  = Math.sin(angle) * this.userVolume
 
+        // Nicely remove the bass gradually from the outgoing track
+        // (exactly the same timing / progress curve as the volume fade)
+        const BASS_CUT_START_HZ = 20
+        const BASS_CUT_END_HZ   = 750
+        primFlt.frequency.value = BASS_CUT_START_HZ + (BASS_CUT_END_HZ - BASS_CUT_START_HZ) * progress
+
         this._patch({ crossfadeProgress: progress })
         await _sleep(stepMs)
       }
 
       if (this.abortFade) {
         primGn.gain.value = primStart
+        primFlt.frequency.value = 20   // restore full bass on abort
         secEl.pause(); secGn.gain.value = 0
         this.abortFade = false
         return
@@ -336,6 +367,9 @@ export class AutoMixEngine {
       primGn.gain.value = this.userVolume   // reset for next time
       secGn.gain.value  = this.userVolume
       this.isPrimA      = !this.isPrimA
+
+      // Reset filter on the new primary track to full bass
+      this._primFilter()!.frequency.value = 20
 
       // 7. Post-swap housekeeping
       this.prebufId     = null
@@ -449,6 +483,8 @@ export class AutoMixEngine {
   private _secEl():   HTMLAudioElement | null { return this.isPrimA ? this.elemB : this.elemA }
   private _primGain(): GainNode | null        { return this.isPrimA ? this.gainA : this.gainB }
   private _secGain(): GainNode | null         { return this.isPrimA ? this.gainB : this.gainA }
+  private _primFilter(): BiquadFilterNode | null { return this.isPrimA ? this.filterA : this.filterB }
+  private _secFilter(): BiquadFilterNode | null  { return this.isPrimA ? this.filterB : this.filterA }
 
   private _resume(): void {
     if (this.ctx?.state === 'suspended') this.ctx.resume()
