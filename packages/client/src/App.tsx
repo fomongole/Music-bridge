@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { RefreshCw, Search, ArrowUp, Music2 } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { RefreshCw, Search, ArrowUp, Music2, ListFilter } from 'lucide-react'
 import { useSocket } from './hooks/useSocket'
 import { usePlayerStore } from './store/usePlayerStore'
 import { usePlaylistStore } from './store/usePlaylistStore'
@@ -29,7 +29,11 @@ function App() {
   const { isEnabled: autoMixEnabled, setEnabled: setAutoMixEnabled } = useAutoMixStore()
 
   const [searchQuery, setSearchQuery]     = useState('')
+  const [sortOption, setSortOption]       = useState('default') // NEW: Sorting state
   const [showScrollTop, setShowScrollTop] = useState(false)
+  
+  // Reference to the main scrollable area
+  const mainRef = useRef<HTMLElement>(null)
 
   // Fetch playlists on mount
   useEffect(() => { fetchPlaylists() }, [fetchPlaylists])
@@ -39,15 +43,17 @@ function App() {
     if (connected) fetchPlaylists()
   }, [connected, fetchPlaylists])
 
+  // Track scrolling on the main container instead of the window
   useEffect(() => {
-    const handleScroll = () => setShowScrollTop(window.scrollY > 400)
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    const mainElement = mainRef.current
+    if (!mainElement) return
+
+    const handleScroll = () => setShowScrollTop(mainElement.scrollTop > 400)
+    mainElement.addEventListener('scroll', handleScroll)
+    return () => mainElement.removeEventListener('scroll', handleScroll)
   }, [])
 
   // ── Stop auto-mix when the user navigates away from a playlist ────────────
-  // This covers: switching to another playlist, going back to the library,
-  // or any other activePlaylistId change.
   useEffect(() => {
     if (useAutoMixStore.getState().isEnabled) {
       useAutoMixStore.getState().setEnabled(false)
@@ -55,7 +61,9 @@ function App() {
     }
   }, [activePlaylistId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+  const scrollToTop = () => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // ── Determine what to display ─────────────────────────────────────────────
   const activePlaylist = playlists.find(p => p.id === activePlaylistId) ?? null
@@ -64,15 +72,34 @@ function App() {
     ? tracks.filter(t => activePlaylist.trackIds.includes(t.id))
     : tracks
 
+  // 1. Filter tracks based on search
   const filteredTracks = visibleTracks.filter(track =>
     track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
     track.album.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  // 2. Sort the filtered tracks using the actual Date Added timestamp
+  const sortedTracks = [...filteredTracks].sort((a, b) => {
+    switch (sortOption) {
+      case 'title-asc':
+        return a.title.localeCompare(b.title)
+      case 'title-desc':
+        return b.title.localeCompare(a.title)
+      case 'artist-asc':
+        return a.artist.localeCompare(b.artist)
+      case 'newest':
+        // Highest timestamp (newest) comes first
+        return b.dateAdded - a.dateAdded
+      case 'default':
+      default:
+        // Lowest timestamp (oldest) comes first
+        return a.dateAdded - b.dateAdded
+    }
+  })
+
   const handleRemoveFromPlaylist = async (trackId: string) => {
     if (!activePlaylistId) return
-    // If auto-mix is running and we remove the active track, stop the mix
     if (autoMixEnabled) {
       setAutoMixEnabled(false)
       usePlayerStore.setState({ isPlaying: false })
@@ -84,7 +111,7 @@ function App() {
   return (
     <div
       className={`
-        min-h-screen flex flex-col
+        h-screen overflow-hidden flex flex-col
         bg-slate-50 dark:bg-zinc-950
         text-slate-900 dark:text-white
         transition-colors duration-300
@@ -109,7 +136,7 @@ function App() {
         <Sidebar />
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto">
+        <main ref={mainRef} className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto w-full px-6 py-8 relative">
 
             {/* Title row */}
@@ -141,9 +168,8 @@ function App() {
 
               {/* Right side: Auto Mix for playlists | Sync for library */}
               {activePlaylist ? (
-                /* Only show Auto Mix when the playlist has tracks */
                 activePlaylist.trackIds.length > 0 && (
-                  <PlaylistAutoMixPanel tracks={filteredTracks.length > 0 ? filteredTracks : visibleTracks} />
+                  <PlaylistAutoMixPanel tracks={sortedTracks.length > 0 ? sortedTracks : visibleTracks} />
                 )
               ) : (
                 <button
@@ -204,10 +230,34 @@ function App() {
               </div>
             )}
 
-            {/* Track list */}
+            {/* NEW: Sort Controls & Meta Data */}
             {filteredTracks.length > 0 && (
+              <div className="flex items-center justify-between mb-4 px-2">
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {sortedTracks.length} {sortedTracks.length === 1 ? 'song' : 'songs'}
+                </span>
+                
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <ListFilter className="w-4 h-4" />
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className="bg-transparent font-medium outline-none cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    <option value="default">Date Added (Oldest)</option>
+                    <option value="newest">Date Added (Newest)</option>
+                    <option value="title-asc">Title (A-Z)</option>
+                    <option value="title-desc">Title (Z-A)</option>
+                    <option value="artist-asc">Artist (A-Z)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Track list */}
+            {sortedTracks.length > 0 && (
               <TrackList
-                tracks={filteredTracks}
+                tracks={sortedTracks} // Pass sorted tracks here
                 playlistId={activePlaylistId ?? undefined}
                 onRemoveFromPlaylist={activePlaylist ? handleRemoveFromPlaylist : undefined}
               />

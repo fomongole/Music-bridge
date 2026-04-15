@@ -7,4 +7,5 @@ export interface Track {
   filePath: string
   albumArtUrl?: string
   format: string
+  dateAdded: number
 }

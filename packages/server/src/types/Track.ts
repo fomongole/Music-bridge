@@ -7,4 +7,5 @@ export interface Track {
   filePath: string     // absolute path on device or temp path on server
   albumArtUrl?: string // served via HTTP once we extract it
   format: string       // 'mp3' | 'flac' | 'aac' | 'wav' | 'ogg'
+  dateAdded: number    // NEW: Unix timestamp in milliseconds
 }
