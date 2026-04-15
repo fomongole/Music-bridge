@@ -43,7 +43,7 @@ const CROSSFADE_GUARD_MS   = 200
 const BEAT_SNAP_WINDOW_MS  = 25
 const GUARD_MAX_ITERATIONS = 1_000
 const MONITOR_INTERVAL_MS  = 200   // normal polling
-const FAST_INTERVAL_MS     = 50    // fast-zone polling
+// const FAST_INTERVAL_MS     = 50    // fast-zone polling
 
 export class AutoMixEngine {
   private ctx:     AudioContext | null = null
