@@ -1,5 +1,3 @@
-// packages/server/src/services/usbService.ts
-
 import { usb, getDeviceList, Device } from 'usb'
 import { Server } from 'socket.io'
 
@@ -26,6 +24,10 @@ function isAndroidDevice(device: Device): boolean {
 
 function getConnectedAndroidDevice(): Device | undefined {
   return getDeviceList().find(isAndroidDevice)
+}
+
+export function isDeviceCurrentlyConnected(): boolean {
+  return !!getConnectedAndroidDevice()
 }
 
 export function initUsbService(io: Server) {

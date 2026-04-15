@@ -3,7 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
-import { initUsbService } from './services/usbService'
+import { initUsbService, isDeviceCurrentlyConnected } from './services/usbService'
 import { scanMusicFiles, getCachedTracks } from './services/adbService'
 import streamRouter from './routes/stream'
 import playlistRouter from './routes/playlists'
@@ -29,6 +29,11 @@ const io = new Server(httpServer, {
 
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`)
+
+  // Immediately tell the client if a device is ALREADY plugged in
+  if (isDeviceCurrentlyConnected()) {
+    socket.emit('device:connected')
+  }
 
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`)
