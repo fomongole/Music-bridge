@@ -3,6 +3,7 @@ import { RefreshCw, Search, ArrowUp, Music2 } from 'lucide-react'
 import { useSocket } from './hooks/useSocket'
 import { usePlayerStore } from './store/usePlayerStore'
 import { usePlaylistStore } from './store/usePlaylistStore'
+import { useAutoMixStore } from './store/useAutoMixStore'
 
 import { Header } from './components/layout/Header'
 import { Sidebar } from './components/layout/Sidebar'
@@ -10,6 +11,8 @@ import { TrackList } from './components/library/TrackList'
 import { PlayerBar } from './components/player/PlayerBar'
 import { NowPlayingOverlay } from './components/player/NowPlayingOverlay'
 import { AudioEngine } from './components/player/AudioEngine'
+import { DJEngine } from './components/player/DJEngine'
+import { PlaylistAutoMixPanel } from './components/player/PlaylistAutoMixPanel'
 
 function App() {
   const { connected, deviceConnected, tracks, scanStatus, scanError, requestScan } = useSocket()
@@ -23,7 +26,9 @@ function App() {
     setActivePlaylist,
   } = usePlaylistStore()
 
-  const [searchQuery, setSearchQuery]   = useState('')
+  const { isEnabled: autoMixEnabled, setEnabled: setAutoMixEnabled } = useAutoMixStore()
+
+  const [searchQuery, setSearchQuery]     = useState('')
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   // Fetch playlists on mount
@@ -40,13 +45,21 @@ function App() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // ── Stop auto-mix when the user navigates away from a playlist ────────────
+  // This covers: switching to another playlist, going back to the library,
+  // or any other activePlaylistId change.
+  useEffect(() => {
+    if (useAutoMixStore.getState().isEnabled) {
+      useAutoMixStore.getState().setEnabled(false)
+      usePlayerStore.setState({ isPlaying: false })
+    }
+  }, [activePlaylistId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 
-  // ── Determine what to display ──────────────────────────────────────────────
-
+  // ── Determine what to display ─────────────────────────────────────────────
   const activePlaylist = playlists.find(p => p.id === activePlaylistId) ?? null
 
-  // Tracks to show in the main panel
   const visibleTracks = activePlaylist
     ? tracks.filter(t => activePlaylist.trackIds.includes(t.id))
     : tracks
@@ -59,11 +72,15 @@ function App() {
 
   const handleRemoveFromPlaylist = async (trackId: string) => {
     if (!activePlaylistId) return
+    // If auto-mix is running and we remove the active track, stop the mix
+    if (autoMixEnabled) {
+      setAutoMixEnabled(false)
+      usePlayerStore.setState({ isPlaying: false })
+    }
     await removeTrackFromPlaylist(activePlaylistId, trackId)
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
       className={`
@@ -75,6 +92,7 @@ function App() {
       `}
     >
       <AudioEngine />
+      <DJEngine />
       <NowPlayingOverlay />
 
       <Header
@@ -105,21 +123,29 @@ function App() {
                     </div>
                     <h2 className="text-3xl font-extrabold tracking-tight">{activePlaylist.name}</h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
-                      {activePlaylist.trackIds.length} {activePlaylist.trackIds.length === 1 ? 'track' : 'tracks'}
+                      {activePlaylist.trackIds.length}{' '}
+                      {activePlaylist.trackIds.length === 1 ? 'track' : 'tracks'}
                     </p>
                   </>
                 ) : (
                   <>
                     <h2 className="text-3xl font-extrabold tracking-tight">Your Library</h2>
                     <p className="text-slate-500 dark:text-slate-400 mt-1">
-                      {tracks.length > 0 ? `${tracks.length} tracks found on device` : 'Connect your phone to sync music'}
+                      {tracks.length > 0
+                        ? `${tracks.length} tracks found on device`
+                        : 'Connect your phone to sync music'}
                     </p>
                   </>
                 )}
               </div>
 
-              {/* Only show sync button in library view */}
-              {!activePlaylist && (
+              {/* Right side: Auto Mix for playlists | Sync for library */}
+              {activePlaylist ? (
+                /* Only show Auto Mix when the playlist has tracks */
+                activePlaylist.trackIds.length > 0 && (
+                  <PlaylistAutoMixPanel tracks={filteredTracks.length > 0 ? filteredTracks : visibleTracks} />
+                )
+              ) : (
                 <button
                   onClick={requestScan}
                   disabled={!deviceConnected || scanStatus === 'scanning'}
@@ -131,7 +157,7 @@ function App() {
               )}
             </div>
 
-            {/* Error */}
+            {/* Scan error (library view only) */}
             {scanStatus === 'error' && !activePlaylist && (
               <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 mb-6">
                 <p className="font-medium">Sync Error: {scanError}</p>
@@ -146,7 +172,14 @@ function App() {
                 </div>
                 <h3 className="text-xl font-bold mb-2">Playlist is empty</h3>
                 <p className="text-slate-500 dark:text-slate-400 max-w-sm">
-                  Hover any track in <button className="text-indigo-500 font-semibold" onClick={() => setActivePlaylist(null)}>Your Library</button> and click <span className="font-semibold text-indigo-500">+</span> to add songs here.
+                  Hover any track in{' '}
+                  <button
+                    className="text-indigo-500 font-semibold"
+                    onClick={() => setActivePlaylist(null)}
+                  >
+                    Your Library
+                  </button>{' '}
+                  and click <span className="font-semibold text-indigo-500">+</span> to add songs here.
                 </p>
               </div>
             )}
@@ -179,14 +212,19 @@ function App() {
                 onRemoveFromPlaylist={activePlaylist ? handleRemoveFromPlaylist : undefined}
               />
             )}
+
           </div>
         </main>
       </div>
 
-      {/* Scroll to top FAB */}
+      {/* Scroll-to-top FAB */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-28 right-8 p-3 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl transition-all duration-300 z-30 ${showScrollTop ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
+        className={`fixed bottom-28 right-8 p-3 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xl transition-all duration-300 z-30 ${
+          showScrollTop
+            ? 'opacity-100 translate-y-0'
+            : 'opacity-0 translate-y-10 pointer-events-none'
+        }`}
       >
         <ArrowUp className="w-5 h-5" />
       </button>
